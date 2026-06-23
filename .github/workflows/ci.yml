@@ -1,0 +1,161 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Least-privilege by default; jobs opt into more if they need it.
+permissions:
+  contents: read
+
+# Cancel superseded runs for the same ref.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ───────────────────────── Kotlin build + test ─────────────────────────
+  build-test:
+    name: build + test (kotlin)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@0bdd871935719febd78681f197cd39af5b6e16a6 # v4.2.2
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@3a4f6e1af504cf6a31855fa899c6aa5355ba6c12 # v4.7.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0bdd871935719febd78681f197cd39af5b6e16a6 # v4.2.2
+
+      - name: Build and test
+        run: ./gradlew build --no-daemon --stacktrace
+
+      - name: Assemble boot jar
+        run: ./gradlew :collab-bootstrap:bootJar --no-daemon
+
+      - name: Upload boot jar
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        with:
+          name: collab-docs-jar
+          path: collab-bootstrap/build/libs/collab-docs.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  # ───────────────────────── realtime-gateway (node) ─────────────────────────
+  gateway:
+    name: build + test (gateway)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: realtime-gateway
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: realtime-gateway/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+  # ───────────────────────── Helm validation ─────────────────────────
+  helm-validate:
+    name: helm validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      KUBECONFORM_VERSION: "0.6.7"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Helm
+        uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
+        with:
+          version: v3.16.2
+
+      - name: Install kubeconform
+        run: |
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" \
+            | tar -xz kubeconform
+          sudo install -m 0755 kubeconform /usr/local/bin/kubeconform
+          kubeconform -v
+
+      - name: Helm lint (dev + prod)
+        run: |
+          helm lint helm/collab-docs
+          helm lint helm/collab-docs -f helm/collab-docs/values-prod.yaml
+
+      - name: Helm template | kubeconform (dev)
+        run: |
+          helm template collab-docs helm/collab-docs --namespace collab \
+            | kubeconform -strict -ignore-missing-schemas -summary -kubernetes-version 1.29.0
+
+      - name: Helm template | kubeconform (prod)
+        run: |
+          helm template collab-docs helm/collab-docs --namespace collab \
+            -f helm/collab-docs/values-prod.yaml \
+            | kubeconform -strict -ignore-missing-schemas -summary -kubernetes-version 1.29.0
+
+      - name: Helm unittest (pinned container)
+        run: |
+          docker run --rm --user 0 \
+            -v "${{ github.workspace }}/helm:/apps" \
+            helmunittest/helm-unittest:3.20.2-1.1.0 collab-docs
+
+  # ───────────────────────── Static analysis / linters ─────────────────────────
+  lint:
+    name: lint (actions + dockerfiles)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: actionlint
+        uses: rhysd/actionlint@03d0035246f3e81f36aed592ffb4bebf33a03106 # v1.7.7
+        with:
+          fail-on-error: true
+
+      - name: hadolint (app Dockerfile)
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: hadolint (gateway Dockerfile)
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
+        with:
+          dockerfile: realtime-gateway/Dockerfile
+          failure-threshold: warning
