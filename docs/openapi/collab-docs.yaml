@@ -1,0 +1,573 @@
+components:
+  schemas:
+    AclEntryResponse:
+      properties:
+        role:
+          enum:
+            - EDITOR
+            - OWNER
+            - VIEWER
+          type: string
+        userId:
+          type: string
+      required:
+        - role
+        - userId
+      type: object
+    AclResponse:
+      properties:
+        documentId:
+          type: string
+        entries:
+          items:
+            $ref: "#/components/schemas/AclEntryResponse"
+          type: array
+        ownerId:
+          type: string
+      required:
+        - documentId
+        - entries
+        - ownerId
+      type: object
+    AddCommentRequest:
+      properties:
+        anchor:
+          $ref: "#/components/schemas/AnchorDto"
+        body:
+          minLength: 1
+          type: string
+      required:
+        - anchor
+        - body
+      type: object
+    AnchorDto:
+      properties:
+        endExclusive:
+          format: int32
+          type: integer
+        kind:
+          type: string
+        position:
+          format: int32
+          type: integer
+        start:
+          format: int32
+          type: integer
+      required:
+        - kind
+      type: object
+    ApplyEditRequest:
+      properties:
+        baseVersion:
+          format: int32
+          minimum: 0
+          type: integer
+        op:
+          oneOf:
+            - $ref: "#/components/schemas/Composite"
+            - $ref: "#/components/schemas/Delete"
+            - $ref: "#/components/schemas/Insert"
+      required:
+        - baseVersion
+        - op
+      type: object
+    ApplyEditResponse:
+      properties:
+        newVersion:
+          format: int32
+          type: integer
+        transformedOp:
+          oneOf:
+            - $ref: "#/components/schemas/Composite"
+            - $ref: "#/components/schemas/Delete"
+            - $ref: "#/components/schemas/Insert"
+      required:
+        - newVersion
+        - transformedOp
+      type: object
+    AskRequest:
+      properties:
+        question:
+          minLength: 1
+          type: string
+        topK:
+          format: int32
+          minimum: 1
+          type: integer
+      required:
+        - question
+        - topK
+      type: object
+    AskResponse:
+      properties:
+        answer:
+          type: string
+        citedOrdinals:
+          items:
+            format: int32
+            type: integer
+          type: array
+        offline:
+          type: boolean
+      required:
+        - answer
+        - citedOrdinals
+        - offline
+      type: object
+    CommentResponse:
+      properties:
+        anchor:
+          $ref: "#/components/schemas/AnchorDto"
+        authorId:
+          type: string
+        body:
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        documentId:
+          type: string
+        id:
+          type: string
+        resolved:
+          type: boolean
+      required:
+        - anchor
+        - authorId
+        - body
+        - createdAt
+        - documentId
+        - id
+        - resolved
+      type: object
+    Composite:
+      allOf:
+        - $ref: "#/components/schemas/OperationDto"
+        - properties:
+            ops:
+              items: {}
+              type: array
+          type: object
+      required:
+        - ops
+    CreateDocumentRequest:
+      properties:
+        content:
+          type: string
+        folderId:
+          type: string
+        title:
+          minLength: 1
+          type: string
+      required:
+        - content
+        - title
+      type: object
+    Delete:
+      allOf:
+        - $ref: "#/components/schemas/OperationDto"
+        - properties:
+            length:
+              format: int32
+              type: integer
+            position:
+              format: int32
+              type: integer
+          type: object
+      required:
+        - length
+        - position
+    DocumentResponse:
+      properties:
+        content:
+          type: string
+        folderId:
+          type: string
+        id:
+          type: string
+        ownerId:
+          type: string
+        title:
+          type: string
+        version:
+          format: int32
+          type: integer
+      required:
+        - content
+        - id
+        - ownerId
+        - title
+        - version
+      type: object
+    Insert:
+      allOf:
+        - $ref: "#/components/schemas/OperationDto"
+        - properties:
+            position:
+              format: int32
+              type: integer
+            text:
+              type: string
+          type: object
+      required:
+        - position
+        - text
+    OperationDto:
+      discriminator:
+        propertyName: type
+      properties:
+        type:
+          type: string
+      required:
+        - type
+    SearchHitResponse:
+      properties:
+        documentId:
+          type: string
+        score:
+          format: double
+          type: number
+        title:
+          type: string
+      required:
+        - documentId
+        - score
+        - title
+      type: object
+    ShareRequest:
+      properties:
+        role:
+          enum:
+            - EDITOR
+            - OWNER
+            - VIEWER
+          type: string
+        targetUserId:
+          minLength: 1
+          type: string
+      required:
+        - role
+        - targetUserId
+      type: object
+    SummarizeResponse:
+      properties:
+        offline:
+          type: boolean
+        summary:
+          type: string
+      required:
+        - offline
+        - summary
+      type: object
+    UpdateTitleRequest:
+      properties:
+        title:
+          minLength: 1
+          type: string
+      required:
+        - title
+      type: object
+    VersionEntryResponse:
+      properties:
+        authorId:
+          type: string
+        committedAt:
+          format: date-time
+          type: string
+        committedVersion:
+          format: int32
+          type: integer
+        op:
+          oneOf:
+            - $ref: "#/components/schemas/Composite"
+            - $ref: "#/components/schemas/Delete"
+            - $ref: "#/components/schemas/Insert"
+      required:
+        - authorId
+        - committedAt
+        - committedVersion
+        - op
+      type: object
+info:
+  title: OpenAPI definition
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/documents:
+    get:
+      operationId: list
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: "#/components/schemas/DocumentResponse"
+                type: array
+          description: OK
+      tags:
+        - document-controller
+    post:
+      operationId: create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}:
+    get:
+      operationId: get
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}/ask:
+    post:
+      operationId: ask
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AskRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AskResponse"
+          description: OK
+      tags:
+        - ai-controller
+  /api/documents/{id}/comments:
+    get:
+      operationId: listComments
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: "#/components/schemas/CommentResponse"
+                type: array
+          description: OK
+      tags:
+        - document-controller
+    post:
+      operationId: addComment
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddCommentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CommentResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}/edit:
+    post:
+      operationId: edit
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApplyEditRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ApplyEditResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}/share:
+    delete:
+      operationId: revokeShare
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: targetUserId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AclResponse"
+          description: OK
+      tags:
+        - document-controller
+    put:
+      operationId: share
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/AclResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}/summarize:
+    post:
+      operationId: summarize
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/SummarizeResponse"
+          description: OK
+      tags:
+        - ai-controller
+  /api/documents/{id}/title:
+    put:
+      operationId: updateTitle
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTitleRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DocumentResponse"
+          description: OK
+      tags:
+        - document-controller
+  /api/documents/{id}/versions:
+    get:
+      operationId: versions
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: "#/components/schemas/VersionEntryResponse"
+                type: array
+          description: OK
+      tags:
+        - document-controller
+  /api/search:
+    get:
+      operationId: search
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: limit
+          required: false
+          schema:
+            default: 10
+            format: int32
+            type: integer
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                items:
+                  $ref: "#/components/schemas/SearchHitResponse"
+                type: array
+          description: OK
+      tags:
+        - search-controller
+servers:
+  - description: collab-docs API (server url normalized for spec stability)
+    url: /
