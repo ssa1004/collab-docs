@@ -1,0 +1,135 @@
+# collab-docs 설정.
+# 기본(프로필 없음) 문서 = zero-infra: H2 in-memory(MODE=PostgreSQL) + in-memory 검색/presence/blob + offline AI.
+# `prod` 프로필(맨 아래) 에서 Postgres/Redis/OpenSearch/실 LLM/실 JWT 를 켠다.
+
+spring:
+  application:
+    name: collab-docs
+
+  # Redis 는 prod presence 어댑터(collab.presence=redis)에서만 쓴다. 기본(zero-infra)에서는
+  # spring-boot-starter-data-redis 가 클래스패스에 있어도 자동설정/헬스체크를 끈다(외부 인프라 0 보장).
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisReactiveAutoConfiguration
+
+  # H2 in-memory. MODE=PostgreSQL 로 Postgres 방언에 가깝게 동작시켜 같은 Flyway 스크립트가 통하게 한다.
+  datasource:
+    url: jdbc:h2:mem:collab;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      # 스키마 소유는 Flyway. Hibernate 는 검증만(엔티티↔스키마 불일치 조기 발견).
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # H2(MODE=PostgreSQL) 와 Postgres 양쪽에서 같은 V1__schema.sql 을 적용한다.
+    baseline-on-migrate: true
+
+  h2:
+    console:
+      enabled: false
+
+# 어댑터 모드 토글(기본 zero-infra). prod 프로필에서 override.
+collab:
+  search:
+    engine: memory        # memory | opensearch
+  presence: memory        # memory | redis
+  ai: offline             # offline | llm
+  blob: memory            # memory | s3
+
+# 액추에이터: health/info 노출.
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+info:
+  app:
+    name: collab-docs
+    description: "Realtime collaborative document editing + document AI (learning/portfolio backend)"
+    profile: default-zero-infra
+
+# OpenAPI(springdoc) — /v3/api-docs, /swagger-ui.html
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+
+---
+# ───────────────────────────── prod 프로필 ─────────────────────────────
+# 실 인프라(Postgres/Redis/OpenSearch/실 LLM/실 JWT). Docker/IdP 가 떠 있는 환경에서 활성화.
+# 값은 환경변수로 주입(아래는 기본/플레이스홀더).
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  # prod 에서는 Redis 자동설정을 다시 켠다(default 의 exclude 를 비워 override).
+  autoconfigure:
+    exclude: []
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/collab}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USER:collab}
+    password: ${DB_PASSWORD:collab}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # 실 IdP issuer. 설정되면 prod SecurityConfig 가 JWT 를 검증한다.
+          issuer-uri: ${JWT_ISSUER_URI:}
+
+collab:
+  search:
+    engine: ${COLLAB_SEARCH_ENGINE:opensearch}
+  presence: ${COLLAB_PRESENCE:redis}
+  ai: ${COLLAB_AI:llm}
+  blob: ${COLLAB_BLOB:s3}
+  ai-config:
+    note: "set collab.ai.base-url / collab.ai.api-key for HttpLlmAdapter"
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
