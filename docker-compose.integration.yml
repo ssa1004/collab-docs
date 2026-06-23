@@ -1,0 +1,112 @@
+# Cross-repo 통합 시연용 compose.
+#
+# - collab-docs (본 저장소) 본체. zero-infra 기본 프로필 그대로 — H2 + in-memory
+#   search/presence + offline 결정론 AI 로 뜬다 (ADR-0004). 외부 DB/ES/Redis 안 띄움.
+# - auth-stub: auth-service 의 JWK Set 노출만 모사 (정적 nginx). prod 프로필이 jwk-set-uri
+#   를 어디로 잡을지 시연용 자리 표시 — 현 dev 프로필은 Bearer 평문을 userId 로 받는다.
+# - notification-hub-stub: collab-docs 가 공유/댓글에서 발생시키는 도메인 event 를 받을
+#   notification-hub 의 inbound topic (collab.doc.events) 을 stdout 으로 tail.
+# - domain-producer: docker exec 로 도메인 event 를 발사할 idle 컨테이너 (kafka client).
+#
+# cross-repo 통합은 스펙 시연용입니다. 8 + 1 레포를 모두 띄우지 않고, collab-docs 가
+# "공유/댓글 → notification-hub 발송 트리거" 흐름에서 어떤 event 모양을 내보내는지만
+# 닫아서 보여주기 위한 stub 묶음입니다. 실 운영 구성이 아닙니다.
+#
+# (정직 표기) collab-docs 의 현재 코드는 공유/댓글 이벤트를 Kafka 로 직접 publish 하지
+# 않는다 — 현 설계는 in-process 도메인 이벤트만 다룬다. 그래서 이 compose 의 Kafka 경로는
+# scripts/integration-demo.sh 가 도메인 service 의 outbox relay 역할을 모사해 event 를
+# 발사하는 것으로 닫는다. 실제 연동 시점에는 collab-adapter-out 에 NotificationPort 의
+# Kafka 어댑터를 붙이는 자리다.
+#
+# 실행:
+#   docker compose -f docker-compose.integration.yml up -d --build
+#   ./scripts/integration-demo.sh
+#   docker compose -f docker-compose.integration.yml down -v
+
+services:
+  collab-docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: collab-docs:integration
+    depends_on:
+      auth-stub: { condition: service_started }
+    environment:
+      # 기본(zero-infra) 프로필 그대로 — 프로필 미지정. H2 + in-memory + offline AI.
+      # ADR-0004 의 "받아서 바로 뜨는" 경로를 통합 stack 안에서도 그대로 쓴다.
+      SERVER_PORT: "8080"
+      # 시연 한정: prod 프로필이 resource server JWT 검증을 켜면
+      # spring.security.oauth2.resourceserver.jwt.jwk-set-uri 로 매핑할 자리 표시.
+      # 현 dev 프로필은 Authorization: Bearer <userId> 평문을 그대로 userId 로 쓴다
+      # (서명 검증 X — DevSecurityConfig). 여기서는 변수만 주입해 stub 가 같은
+      # 네트워크에서 보이는지 확인.
+      COLLAB_JWKS_URI: http://auth-stub:8080/.well-known/jwks.json
+    ports:
+      # 호스트 18088 → 컨테이너 8080. 다른 포트폴리오 service 의 통합 compose 와 동시
+      # 기동해도 충돌 없도록 일반 8080 회피.
+      - "18088:8080"
+
+  # auth-service stub — JWK Set 만 정적으로 서비스. 실제 토큰 발급은 demo 스크립트가
+  # 평문 mock JWT 를 만들어 사용. 실 service 의 /oauth2/jwks 와 같은 응답 모양 (kty / kid /
+  # alg / n / e) 만 모사. 파일은 build-time 에 image 로 COPY — host bind mount 비의존.
+  auth-stub:
+    build:
+      context: ./infrastructure/integration/auth-stub
+      dockerfile: Dockerfile
+    image: collab-docs/auth-stub:dev
+    ports:
+      - "18085:8080"
+
+  kafka:
+    # Apache 공식 KRaft 이미지 (single-node). tools 는 /opt/kafka/bin/ 에 존재.
+    image: apache/kafka:3.7.0
+    environment:
+      - KAFKA_NODE_ID=0
+      - KAFKA_PROCESS_ROLES=controller,broker
+      - KAFKA_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=0@kafka:9093
+      - KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      - KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR=1
+      - KAFKA_TRANSACTION_STATE_LOG_MIN_ISR=1
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+
+  # notification-hub stub — collab-docs 가 발사한 collab.doc.events topic 을 from-beginning
+  # 으로 tail. 실제 hub 는 본 메시지를 받아 share / comment 알림을 사용자 채널
+  # (push / mail / slack) 로 fan-out. docker compose logs notification-hub-stub 으로
+  # 메시지 도달을 확인한다.
+  notification-hub-stub:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka: { condition: service_healthy }
+    entrypoint:
+      - bash
+      - -c
+      - |
+        # topic 이 아직 없을 수 있으므로 우선 생성 (idempotent).
+        /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 \
+          --create --if-not-exists --topic collab.doc.events \
+          --partitions 1 --replication-factor 1
+        echo "[notification-hub-stub] tailing collab.doc.events"
+        /opt/kafka/bin/kafka-console-consumer.sh --bootstrap-server kafka:9092 \
+          --topic collab.doc.events \
+          --from-beginning \
+          --property print.key=true --property print.timestamp=true
+
+  # 도메인 event producer stub — kafka client 가 있으면 충분. demo 스크립트가
+  # docker exec 로 produce 명령을 실행한다. apache/kafka 이미지의 bin/ 을 PATH 에 노출.
+  domain-producer:
+    image: apache/kafka:3.7.0
+    depends_on:
+      kafka: { condition: service_healthy }
+      collab-docs: { condition: service_started }
+    entrypoint: ["sleep", "infinity"]
+    environment:
+      - PATH=/opt/kafka/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

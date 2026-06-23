@@ -1,0 +1,12 @@
+{
+  "keys": [
+    {
+      "kty": "RSA",
+      "use": "sig",
+      "kid": "auth-stub-2026-06",
+      "alg": "RS256",
+      "n": "stub-modulus-base64url-not-a-real-key",
+      "e": "AQAB"
+    }
+  ]
+}
