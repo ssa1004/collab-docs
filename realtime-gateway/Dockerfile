@@ -6,7 +6,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ---------- build stage ----------
-FROM node:20-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /app
 
 # Install with the lockfile for reproducible builds; cache this layer on
@@ -21,7 +21,7 @@ COPY src ./src
 RUN npm run build && npm prune --omit=dev
 
 # ---------- runtime stage ----------
-FROM node:20-alpine AS runtime
+FROM node:26-alpine AS runtime
 
 # Patch base OS packages and add a curl for the HEALTHCHECK. The 'node' image
 # already ships an unprivileged 'node' user (uid 1000); reuse it.
