@@ -1,0 +1,35 @@
+collab-docs has been deployed.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+Chart:     {{ include "collab-docs.chart" . }}
+Image:     {{ include "collab-docs.image" . }}
+Profile:   {{ .Values.springProfiles | default "default (zero-infra: H2 + in-memory search/presence + offline AI)" }}
+
+1. Watch the rollout:
+
+   kubectl --namespace {{ .Release.Namespace }} rollout status deployment/{{ include "collab-docs.fullname" . }}
+
+2. Port-forward and hit the actuator health endpoint:
+
+   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "collab-docs.fullname" . }} 8080:{{ .Values.service.port }}
+   curl -fsS http://127.0.0.1:8080/actuator/health
+
+3. REST API is under /api (e.g. POST /api/documents); the realtime WebSocket is at /ws/documents/{id}.
+
+{{- if .Values.autoscaling.enabled }}
+
+Autoscaling is ENABLED ({{ .Values.autoscaling.minReplicas }}–{{ .Values.autoscaling.maxReplicas }} replicas, CPU target {{ .Values.autoscaling.targetCPUUtilizationPercentage }}%).
+{{- else }}
+
+Autoscaling is disabled; running {{ .Values.replicaCount }} replica(s).
+{{- end }}
+{{- if .Values.serviceMonitor.enabled }}
+
+A Prometheus ServiceMonitor was created (path {{ .Values.serviceMonitor.path }}). Ensure the
+app exposes that endpoint (prod profile / micrometer-prometheus registry).
+{{- end }}
+{{- if not .Values.serviceAccount.automount }}
+
+NOTE: ServiceAccount token automount is OFF (the app does not call the Kubernetes API).
+{{- end }}

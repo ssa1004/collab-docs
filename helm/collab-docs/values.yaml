@@ -1,0 +1,179 @@
+# Default values for collab-docs.
+# This is the dev/baseline profile. Production overrides live in values-prod.yaml.
+
+# -- Number of replicas (ignored when autoscaling.enabled is true).
+replicaCount: 1
+
+image:
+  # -- Container image repository for the Kotlin app.
+  repository: ghcr.io/ssa1004/collab-docs
+  # -- Image pull policy.
+  pullPolicy: IfNotPresent
+  # -- Image tag. Defaults to .Chart.AppVersion when empty.
+  tag: ""
+
+# -- Image pull secrets for private registries.
+imagePullSecrets: []
+# -- Override the chart name portion of resource names.
+nameOverride: ""
+# -- Fully override the generated fullname of resources.
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Create a dedicated ServiceAccount.
+  create: true
+  # -- Do not auto-mount the SA token unless the app needs the API.
+  automount: false
+  # -- Extra annotations for the ServiceAccount (e.g. IRSA role ARN).
+  annotations: {}
+  # -- ServiceAccount name; generated when empty.
+  name: ""
+
+# -- Active Spring profiles passed via SPRING_PROFILES_ACTIVE. Empty == zero-infra default.
+springProfiles: ""
+
+# -- Extra environment variables (list of {name,value} or {name,valueFrom}).
+extraEnv: []
+# -- Mount env vars from these Secrets/ConfigMaps (envFrom).
+envFrom: []
+
+# -- Pod-level annotations.
+podAnnotations: {}
+# -- Pod-level labels.
+podLabels: {}
+
+# Pod-level security context (hardened, rootless).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Container-level security context (read-only root, no privilege escalation, all caps dropped).
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  privileged: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  # -- Service type.
+  type: ClusterIP
+  # -- Service port.
+  port: 8080
+  # -- Container port the app listens on.
+  targetPort: 8080
+  # -- Named port for the HTTP container port.
+  portName: http
+  # -- Extra service annotations.
+  annotations: {}
+
+# Container port the Spring Boot app binds to (SERVER_PORT).
+containerPort: 8080
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: collab-docs.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Resource requests/limits. CPU limit intentionally omitted (avoid throttling);
+# memory request==limit for a stable QoS.
+resources:
+  requests:
+    cpu: 100m
+    memory: 512Mi
+  limits:
+    memory: 512Mi
+
+# Health probes — all target the Spring Boot actuator aggregate health endpoint.
+probes:
+  startup:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 30
+  readiness:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  liveness:
+    enabled: true
+    path: /actuator/health
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 75
+  # -- Optional memory target (omitted when null).
+  targetMemoryUtilizationPercentage: null
+  # -- Optional scaling behavior block (passed through verbatim when set).
+  behavior: {}
+
+podDisruptionBudget:
+  enabled: false
+  # -- minAvailable (mutually exclusive with maxUnavailable).
+  minAvailable: 1
+  # -- maxUnavailable (set one of the two).
+  maxUnavailable: null
+
+networkPolicy:
+  enabled: false
+  # -- Ingress sources allowed to reach the app port. Empty == allow from same namespace.
+  ingressFrom: []
+  # -- Allow DNS egress (UDP/TCP 53). Most clusters need this.
+  allowDnsEgress: true
+  # -- Additional egress rules appended verbatim.
+  extraEgress: []
+
+serviceMonitor:
+  # -- Create a Prometheus Operator ServiceMonitor (requires the CRD).
+  enabled: false
+  # -- Scrape interval.
+  interval: 30s
+  # -- Scrape timeout.
+  scrapeTimeout: 10s
+  # -- Actuator metrics path (Prometheus). Requires the prometheus registry on the app.
+  path: /actuator/prometheus
+  # -- Extra labels (e.g. release: kube-prometheus-stack) so the operator selects it.
+  labels: {}
+
+# -- Volumes added to the pod. By default an emptyDir for /tmp (readOnlyRootFilesystem needs writable tmp).
+volumes: []
+# -- volumeMounts added to the app container.
+volumeMounts: []
+
+# -- Node selector.
+nodeSelector: {}
+# -- Tolerations.
+tolerations: []
+# -- Affinity rules.
+affinity: {}
+# -- Topology spread constraints.
+topologySpreadConstraints: []
+
+# -- Termination grace period (seconds). WS connections drain on shutdown.
+terminationGracePeriodSeconds: 45
