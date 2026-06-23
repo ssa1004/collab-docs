@@ -1,0 +1,115 @@
+suite: deployment
+templates:
+  - templates/deployment.yaml
+tests:
+  - it: renders a single Deployment named after the release
+    set:
+      fullnameOverride: collab-docs
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment
+      - equal:
+          path: metadata.name
+          value: collab-docs
+
+  - it: sets a hardened pod security context
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.securityContext.seccompProfile.type
+          value: RuntimeDefault
+
+  - it: sets a hardened container security context (read-only root, no priv-esc, drop ALL)
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation
+          value: false
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - contains:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop
+          content: ALL
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.seccompProfile.type
+          value: RuntimeDefault
+
+  - it: configures startup, readiness and liveness probes on the actuator health endpoint
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.httpGet.path
+          value: /actuator/health
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.httpGet.path
+          value: /actuator/health
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.path
+          value: /actuator/health
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.httpGet.port
+          value: http
+
+  - it: mounts a writable tmp emptyDir for the read-only root filesystem
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].volumeMounts
+          content:
+            name: tmp
+            mountPath: /tmp
+      - contains:
+          path: spec.template.spec.volumes
+          content:
+            name: tmp
+            emptyDir: {}
+
+  - it: defaults the image tag to the chart appVersion
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/ssa1004/collab-docs:0.1.0
+
+  - it: sets SERVER_PORT and omits SPRING_PROFILES_ACTIVE by default
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SERVER_PORT
+            value: "8080"
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SPRING_PROFILES_ACTIVE
+            value: prod
+
+  - it: activates the prod profile when springProfiles is set
+    set:
+      springProfiles: prod
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: SPRING_PROFILES_ACTIVE
+            value: prod
+
+  - it: honours replicaCount when autoscaling is disabled
+    set:
+      replicaCount: 4
+      autoscaling.enabled: false
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 4
+
+  - it: omits replicas when autoscaling is enabled
+    set:
+      autoscaling.enabled: true
+    asserts:
+      - notExists:
+          path: spec.replicas

@@ -1,0 +1,89 @@
+# Production overrides for collab-docs.
+# Enables the prod Spring profile (Postgres/Redis/OpenSearch/real LLM/real JWT)
+# and turns on autoscaling, PDB, NetworkPolicy and the ServiceMonitor.
+
+replicaCount: 3
+
+image:
+  pullPolicy: IfNotPresent
+
+# Activate the prod Spring profile. Backing services are injected via extraEnv/envFrom.
+springProfiles: "prod"
+
+# Wire real infra through env. Secrets should come from a Secret via envFrom in a
+# real cluster; these are placeholders showing the contract.
+extraEnv:
+  - name: DB_URL
+    value: jdbc:postgresql://collab-postgres:5432/collab
+  - name: REDIS_HOST
+    value: collab-redis
+  - name: COLLAB_SEARCH_ENGINE
+    value: opensearch
+  - name: COLLAB_PRESENCE
+    value: redis
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 768Mi
+  limits:
+    memory: 768Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 30
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+networkPolicy:
+  enabled: true
+  ingressFrom:
+    # Allow scraping/ingress only from pods labelled as the ingress/monitoring tier.
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: ingress-nginx
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
+  allowDnsEgress: true
+  extraEgress:
+    # Egress to Postgres, Redis and OpenSearch (same namespace, by port).
+    - to: []
+      ports:
+        - protocol: TCP
+          port: 5432
+        - protocol: TCP
+          port: 6379
+        - protocol: TCP
+          port: 9200
+
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  labels:
+    release: kube-prometheus-stack
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: collab-docs
