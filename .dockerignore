@@ -1,0 +1,32 @@
+# Build outputs (rebuilt inside the image)
+**/build/
+**/.gradle/
+.gradle/
+.kotlin/
+
+# Node (realtime-gateway has its own image / build context)
+**/node_modules/
+**/dist/
+
+# VCS / IDE
+.git/
+.github/
+.idea/
+*.iml
+.vscode/
+
+# Helm / infra (not needed in the app image)
+helm/
+docs/
+# e2e-tests sources are not needed; the bootJar build creates an empty project dir
+# so settings.gradle.kts still resolves the included (build-script-less) module.
+e2e-tests/
+
+# Local / OS
+.DS_Store
+*.log
+.env
+*.local
+
+# Tests are run in CI, not in the image build
+**/src/test/
