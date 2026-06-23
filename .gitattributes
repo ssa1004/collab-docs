@@ -1,0 +1,57 @@
+# Git attributes — 줄바꿈 / linguist / merge driver 통일.
+# 작성자가 macOS / Windows 혼합 환경에서 작업할 때 CRLF / LF 가 섞이는 것을 방지.
+
+# 기본 — 텍스트는 자동 감지, commit 시 LF 로 정규화.
+* text=auto eol=lf
+
+# 명시적 텍스트 — 확장자 기반.
+*.java       text eol=lf
+*.kt         text eol=lf
+*.kts        text eol=lf
+*.gradle     text eol=lf
+*.properties text eol=lf
+*.xml        text eol=lf
+*.yml        text eol=lf
+*.yaml       text eol=lf
+*.json       text eol=lf
+*.toml       text eol=lf
+*.md         text eol=lf
+*.sql        text eol=lf
+*.html       text eol=lf
+*.css        text eol=lf
+*.js         text eol=lf
+*.ts         text eol=lf
+*.txt        text eol=lf
+Dockerfile   text eol=lf
+
+# Shell 은 반드시 LF (CRLF 면 #!/bin/bash 가 깨짐).
+*.sh         text eol=lf
+*.bash       text eol=lf
+gradlew      text eol=lf
+
+# Windows 전용 — CRLF 유지.
+*.bat        text eol=crlf
+*.cmd        text eol=crlf
+gradlew.bat  text eol=crlf
+
+# 바이너리 — diff / merge 안 함.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.gz   binary
+*.tar  binary
+*.jar  binary
+*.war  binary
+*.class binary
+
+# Linguist — GitHub 언어 통계에서 build 산출물 / vendor / generated 제외.
+gradle/wrapper/gradle-wrapper.jar binary linguist-vendored
+gradlew      linguist-vendored
+gradlew.bat  linguist-vendored
+**/build/**       linguist-generated
+**/generated/**   linguist-generated
+docs/**           linguist-documentation
