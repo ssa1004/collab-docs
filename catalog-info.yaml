@@ -1,0 +1,191 @@
+---
+# Backstage Software Catalog 정의 — collab-docs component + collab-docs-rest API.
+# system 정의는 ssa1004/auth-service 레포에 있다.
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: collab-docs
+  description: "실시간 협업 문서 편집 + 문서 AI — 서버 권위 OT(Operational Transform) 동시성, 헥사고날, zero-infra 기본 부팅, RAG/요약 offline AI, WebSocket presence fan-out"
+  annotations:
+    github.com/project-slug: ssa1004/collab-docs
+    backstage.io/source-location: url:https://github.com/ssa1004/collab-docs
+  tags:
+    - collaborative-editing
+    - operational-transform
+    - websocket
+    - rag
+    - hexagonal-architecture
+    - zero-infra
+    - kotlin
+  links:
+    - url: https://github.com/ssa1004/collab-docs
+      title: GitHub Repository
+    - url: https://github.com/ssa1004/collab-docs/blob/main/README.md
+      title: README
+    - url: https://github.com/ssa1004/collab-docs/tree/main/docs/adr
+      title: ADRs
+spec:
+  type: service
+  lifecycle: experimental
+  owner: user:ssa1004
+  system: ssa1004-portfolio
+  providesApis:
+    - collab-docs-rest
+  dependsOn:
+    - component:auth-service
+
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: collab-docs-rest
+  description: "문서 CRUD / 동시 편집(OT) / 공유(ACL) / 코멘트 / 전문 검색 / 문서 AI(RAG ask + 추출 요약) REST API"
+  annotations:
+    github.com/project-slug: ssa1004/collab-docs
+  links:
+    - url: https://github.com/ssa1004/collab-docs/tree/main/docs/adr
+      title: 관련 ADR
+spec:
+  type: openapi
+  lifecycle: experimental
+  owner: user:ssa1004
+  system: ssa1004-portfolio
+  # 요약 스펙 — 전체 OpenAPI 는 springdoc 가 런타임에 /v3/api-docs.yaml 로 생성하며
+  # docs/openapi/collab-docs.yaml 에 정규화 커밋된다 (CI drift gate). WebSocket
+  # 프로토콜(/ws/documents/{id})은 OpenAPI 3.1 모델 밖이라 README 에 별도 기술.
+  definition: |
+    openapi: 3.0.3
+    info:
+      title: collab-docs REST API
+      version: 1.0.0
+      description: |
+        실시간 협업 문서 편집 백엔드.
+        서버 권위 OT 로 동시 편집을 수렴시키고, 전문 검색 + 문서 AI(RAG ask / 추출 요약)를 제공.
+        기본 프로필은 zero-infra(H2 + in-memory + offline AI)로 뜬다.
+    paths:
+      /api/documents:
+        post:
+          summary: 문서 생성 (owner = 인증 사용자)
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [title]
+                  properties:
+                    title: { type: string }
+                    content: { type: string }
+          responses:
+            "201":
+              description: 생성된 문서
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      title: { type: string }
+                      content: { type: string }
+                      version: { type: integer }
+                      ownerId: { type: string }
+      /api/documents/{id}/edit:
+        post:
+          summary: 편집 op 적용 (서버 권위 OT — baseVersion 기준 rebase)
+          parameters:
+            - in: path
+              name: id
+              required: true
+              schema: { type: string }
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [op, baseVersion]
+                  properties:
+                    op:
+                      type: object
+                      properties:
+                        type: { type: string, enum: [insert, delete] }
+                        position: { type: integer }
+                        text: { type: string }
+                        length: { type: integer }
+                    baseVersion: { type: integer, minimum: 0 }
+          responses:
+            "200":
+              description: 적용 결과 (transform 된 op + 새 버전)
+              content:
+                application/json:
+                  schema:
+                    type: object
+                    properties:
+                      version: { type: integer }
+                      appliedOp: { type: object }
+            "409": { description: baseVersion 범위 위반 / OT 상태 충돌 }
+      /api/documents/{id}/share:
+        put:
+          summary: 문서 공유 (OWNER 만 — target 에게 role 부여/변경)
+          parameters:
+            - in: path
+              name: id
+              required: true
+              schema: { type: string }
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [targetUserId, role]
+                  properties:
+                    targetUserId: { type: string }
+                    role: { type: string, enum: [OWNER, EDITOR, VIEWER] }
+          responses:
+            "200": { description: 갱신된 ACL }
+            "403": { description: OWNER 가 아님 (AccessDenied) }
+      /api/search:
+        get:
+          summary: 전문 검색 (접근 가능 문서 한정)
+          parameters:
+            - in: query
+              name: q
+              required: true
+              schema: { type: string }
+            - in: query
+              name: limit
+              schema: { type: integer, default: 10 }
+          responses:
+            "200": { description: 검색 결과 }
+      /api/documents/{id}/ask:
+        post:
+          summary: 문서 기반 RAG 질의 (기본 offline 결정론 AI)
+          parameters:
+            - in: path
+              name: id
+              required: true
+              schema: { type: string }
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required: [question]
+                  properties:
+                    question: { type: string }
+                    topK: { type: integer, minimum: 1, default: 4 }
+          responses:
+            "200": { description: 답변 + 근거 chunk }
+      /api/documents/{id}/summarize:
+        post:
+          summary: 문서 요약 (추출 요약, offline)
+          parameters:
+            - in: path
+              name: id
+              required: true
+              schema: { type: string }
+          responses:
+            "200": { description: 요약 결과 }
