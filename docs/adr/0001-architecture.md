@@ -7,10 +7,10 @@
 ## 결정
 
 ### 헥사고날 멀티모듈 (의존성은 안쪽=도메인 방향)
-- **collab-domain** — 순수 Kotlin. Spring/JPA 의존성 0. 핵심 aggregate(Document, DocumentVersion, Folder, ShareAcl, Comment)와 **OT(Operational Transform) 엔진**(TextOperation, transform, compose, apply)이 여기 산다. 동시 편집 정합성의 핵심 로직이므로 프레임워크와 분리해 단위 테스트로 고정한다.
+- **collab-domain** — 순수 Kotlin. Spring/JPA 의존성 0. 핵심 aggregate(Document, Folder, ShareAcl, Comment)와 **OT(Operational Transform) 엔진**(TextOperation·TextOperation.Composite, transform, apply)이 여기 산다. 동시 편집 정합성의 핵심 로직이므로 프레임워크와 분리해 단위 테스트로 고정한다. (편집 이력 `EditLog` 는 도메인이 아니라 collab-application out-port(`EditLogRepository`) + collab-adapter-out(`EditLogEntity`)에 있다.)
 - **collab-application** — use case(@Service) + inbound/outbound port 인터페이스. 트랜잭션 경계, 권한 검사, OT 적용 오케스트레이션, RAG 파이프라인 조립.
 - **collab-adapter-in** — REST controller + **WebSocket/SSE** 핸들러(실시간 편집 op 브로드캐스트 + presence). Spring Security(JWT resource server).
-- **collab-adapter-out** — 영속/검색/presence/AI/blob 구현체. JPA(Postgres/H2), 문서 검색(OpenSearch + in-memory fallback), presence(Redis pub/sub + in-memory fallback), AI(LLM/임베딩 port — offline 결정론 모드 + Spring AI 실연동), blob store(S3/DynamoDB 추상화 + in-memory fallback).
+- **collab-adapter-out** — 영속/검색/presence/AI/blob 구현체. JPA(Postgres/H2), 문서 검색(OpenSearch + in-memory fallback), presence(Redis pub/sub + in-memory fallback), AI(LLM/임베딩 port — offline 결정론 모드 + LLM HTTP 어댑터(`HttpLlmAdapter`) 실연동), blob store(S3/DynamoDB 추상화 + in-memory fallback).
 - **collab-bootstrap** — Spring Boot main + profile 조립.
 - **e2e-tests** — Testcontainers 통합 시나리오.
 - **realtime-gateway** (별도 Node.js/TypeScript) — JWT 인증 + WebSocket 멀티플렉싱 edge 게이트웨이. 클라이언트 WS 연결을 받아 백엔드로 op를 중계하고 브로드캐스트를 fan-out 한다. **권위(authoritative) OT 적용은 Kotlin 백엔드가 담당**하고 게이트웨이는 전송/인증/팬아웃 edge 역할만 한다(폴리글랏 + 연결 스케일아웃 학습 목적).
@@ -26,7 +26,7 @@
 ### 기술 스택
 - Kotlin 2.0 / JDK 21 / Spring Boot 3.5.15 / Spring for WebSocket / Spring Security(JWT)
 - PostgreSQL + Flyway / H2(dev) / Redis(Lettuce) / OpenSearch(dev=in-memory)
-- Spring AI(또는 LLM HTTP port) — offline stub + 실연동 선택형
+- LLM HTTP 어댑터(`HttpLlmAdapter`, LLM HTTP port) — offline stub + 실연동 선택형
 - Node.js 20 / TypeScript / ws — realtime-gateway
 - Gradle 멀티모듈 / Docker(멀티스테이지 non-root) / Helm / GitHub Actions(CI + Trivy + OpenAPI drift)
 

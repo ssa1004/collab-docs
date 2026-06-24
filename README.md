@@ -164,7 +164,7 @@ graph LR
 
 | 모듈 | 책임 |
 |---|---|
-| `collab-domain` | 순수 Kotlin, 프레임워크 의존성 0. **OT 엔진**(`TextOperation` · transform · compose · apply) + aggregate(Document, ShareAcl, Comment, Folder, DocumentChunk). 동시성 핵심을 단위 테스트로 고정 |
+| `collab-domain` | 순수 Kotlin, 프레임워크 의존성 0. **OT 엔진**(`TextOperation` · transform · apply · `Composite`) + aggregate(Document, ShareAcl, Comment, Folder, DocumentChunk). 동시성 핵심을 단위 테스트로 고정 |
 | `collab-application` | use case(`@Service`) + 권한 + RAG 파이프라인 + **out-port 인터페이스 소유**(DIP — 어댑터가 구현) |
 | `collab-adapter-in` | driving 어댑터 — REST 컨트롤러 · WebSocket 핸들러 · Spring Security |
 | `collab-adapter-out` | driven 어댑터 — JPA · 검색 · presence · AI · blob. 관심사마다 dev(in-memory/offline) / prod(실 인프라) 어댑터를 `collab.*` 프로퍼티로 토글 |
@@ -301,7 +301,7 @@ websocat "ws://localhost:8080/ws/documents/$ID?userId=carol"
 
 | 모듈 | 단위 테스트 | 검증 |
 |---|---|---|
-| `collab-domain` | 36 | OT transform / apply / compose, TP1 수렴, delete 경계 규칙(ADR-0003), ShareAcl, Comment anchor, 버전 invariant |
+| `collab-domain` | 36 | OT transform / apply / Composite, TP1 수렴, delete 경계 규칙(ADR-0003), ShareAcl, Comment anchor, 버전 invariant |
 | `collab-application` | 15 | use case — 동시 편집 rebase, 권한(ACL), RAG 파이프라인 |
 | `collab-bootstrap` | 1 | Spring 컨텍스트 부팅 (zero-infra 프로필 wiring) |
 

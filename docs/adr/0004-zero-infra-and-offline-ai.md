@@ -13,7 +13,7 @@
 | 관심사 | 기본(zero-infra) | `prod` 프로필 |
 |---|---|---|
 | DB | **H2 in-memory** (`MODE=PostgreSQL`, 같은 Flyway `V1__schema.sql`) | PostgreSQL |
-| 검색 | **in-memory 역색인** (`collab.search=memory`) | OpenSearch |
+| 검색 | **in-memory 역색인** (`collab.search.engine=memory`) | OpenSearch |
 | presence/fan-out | **in-memory pub/sub** (`collab.presence=memory`) | Redis pub/sub |
 | AI | **offline 결정론** (`collab.ai=offline`) | 실 LLM(`HttpLlmAdapter`) |
 | blob | **in-memory** (`collab.blob=memory`) | S3 |
