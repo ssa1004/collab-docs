@@ -190,7 +190,9 @@ graph LR
 
 ## 실행 방법
 
-JDK 만 있으면 된다(17+ 호스트 OK — Gradle 이 Foojay 로 JDK 21 toolchain 을 자동 조달). Docker·DB·API 키 불필요.
+JDK 만 있으면 된다(17+ 호스트 OK — `bootRun` 은 Gradle 이 Foojay 로 JDK 21 toolchain 을 자동 조달). Docker·DB·API 키 불필요.
+
+> 빌드 산출물 jar 는 JDK 21 바이트코드라 `java -jar` 로 직접 띄울 때는 JDK 21 런타임이 필요하다. 호스트가 JDK 17 이면 toolchain 을 인지하는 `./gradlew bootRun` 으로 실행하면 된다.
 
 ```bash
 # 기본 프로필 부팅 (H2 + in-memory 검색/presence + offline AI)
