@@ -34,14 +34,14 @@
 ---
 
 실시간 협업 문서 편집 + 문서 AI 백엔드입니다. 여러 사용자가 같은 plain-text 문서를 동시에
-편집하면, 서버가 **서버 권위 OT(Operational Transformation)** 로 동시 편집 충돌을 해소해 편집
+편집하면, 서버가 **서버 권위 OT(Operational Transformation)**(= 동시 편집 시 서버가 심판이 되어 모든 편집을 한 줄로 줄 세워 충돌 없이 합쳐, 누가 먼저 들어오든 모두 같은 화면이 되게 하는 방식) 로 동시 편집 충돌을 해소해 편집
 손실 없이 모두 같은 텍스트로 수렴시킵니다. 그 위에 전문 검색과 문서 AI(RAG 질의 + 추출 요약)
-를 얹었습니다. **외부 인프라 0(Docker·DB·API 키 없음)** 으로 부팅해 REST + WebSocket 을
+를 얹었습니다. **외부 인프라 0(Docker·DB·API 키 없음)**(= Docker·DB·API 키 같은 외부 준비물 하나 없이 명령 한 줄로 바로 켜지는 부팅) 으로 부팅해 REST + WebSocket 을
 서빙하며, `prod` 프로필에서는 같은 코드가 어댑터만 바꿔 실 인프라(PostgreSQL / OpenSearch /
 Redis / 실 LLM)로 동작합니다.
 
 설계 의사결정의 상세 배경은 [docs/adr/](docs/adr/) 의 ADR 6건에 정리돼 있다 — OT vs CRDT,
-OT 경계 규칙, zero-infra + offline AI, presence / fan-out, 헥사고날 모듈 경계.
+OT 경계 규칙, zero-infra + offline AI, presence / fan-out, 헥사고날 모듈 경계(= 핵심 로직을 가운데 두고 DB·검색·웹은 콘센트와 플러그처럼 갈아끼우게 분리해, 바깥을 바꿔도 핵심 코드는 안 건드리는 모듈 구조).
 
 ## 기술 스택
 
@@ -90,7 +90,7 @@ Redis / 실 LLM 으로 교체된다([ADR-0004](docs/adr/0004-zero-infra-and-offl
 > dev 인증은 실 인증이 아니다. `Authorization: Bearer <이름>` 의 평문이 그대로 userId 가 된다
 > (서명 검증 없음 — 데모용 사용자 흉내). 실 JWT 검증은 `prod` 전용이다.
 
-### 4. Offline 결정론 AI — LLM 아님
+### 4. Offline 결정론 AI(= 인터넷·API 키 없이 돌고, 같은 질문엔 늘 같은 답을 내는 데모용 AI — 진짜 LLM 아님) — LLM 아님
 
 `ask` / `summarize` 의 기본값은 추출(extractive) 결정론 알고리즘(키워드 / embedding 검색 +
 문장 추출)이다. 모든 답변에 `"[offline] 결정론 추출 모드(LLM 아님)."` prefix + `offline:true`

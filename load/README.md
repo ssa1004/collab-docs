@@ -1,9 +1,9 @@
 # Load test (k6)
 
 collab-docs 의 3 가지 부하 시나리오. 단순 RPS 가 아니라 이 service 특유의 비용을 본다 —
-**동시 편집 contention 에서의 OT rebase**, 검색 query latency, RAG(ask) 파이프라인.
+**동시 편집 contention 에서의 OT rebase**(= 여러 명이 같은 문서를 동시에 칠 때 서로 자리를 다투는 상황에서, 늦게 도착한 편집을 먼저 반영된 편집들 위로 자리만 보정해 다시 얹는 합치기 비용), 검색 query latency, RAG(ask) 파이프라인.
 
-기본(zero-infra) 프로필이면 H2 + in-memory search/presence + offline 결정론 AI 로 돌아
+기본(zero-infra)(= Docker·DB·API 키 같은 외부 준비물 없이 바로 켜지는 부팅) 프로필이면 H2 + in-memory search/presence + offline 결정론 AI(= 인터넷·API 키 없이 돌고 같은 질문엔 늘 같은 답을 내는 데모용 AI — 진짜 LLM 아님) 로 돌아
 외부 인프라 없이 세 시나리오가 모두 동작한다 (ADR-0004). 절대 latency 는 prod 프로필
 (Postgres + OpenSearch + Redis + 실 LLM) 과 다르므로 thresholds 는 환경에 맞게 본다.
 
