@@ -56,6 +56,14 @@ outbound port 인터페이스(`DocumentRepository`, `DocumentSearchPort`, `Prese
 
 도메인(특히 OT 엔진)이 프레임워크와 물리적으로 분리되어 빠른 단위 테스트로 고정된다. 모든 인프라가 application 이 소유한 port 뒤에 있어, dev(in-memory/offline)와 prod(실 인프라)가 같은 use-case 코드로 동작하고, 어댑터 교체가 안쪽 코드를 건드리지 않는다.
 
+## 용어 풀이 (쉽게)
+
+- **헥사고날 아키텍처 / port·adapter** — 핵심 로직을 가운데 두고 DB·검색·웹은 콘센트(port)와 플러그(adapter)로만 잇는 구조. 콘센트 규격만 맞으면 바깥 기기를 갈아 끼워도 핵심은 그대로다.
+- **driving / driven 어댑터** — driving은 바깥에서 핵심을 '불러 쓰는' 쪽(REST·WS 같은 입력구), driven은 핵심이 '시켜서 일하는' 쪽(DB·검색 같은 출력구). 화살표 방향이 반대다.
+- **의존성 역전(DIP) / port를 application이 소유** — 핵심이 바깥을 직접 알지 않게, 핵심이 정한 콘센트 규격(인터페이스)을 바깥 어댑터가 맞춰 구현하는 것. 그래서 검색엔진을 바꿔도 핵심 코드는 다시 컴파일조차 안 한다.
+- **aggregate(애그리거트)** — 함께 묶여 한 덩어리로 다뤄지는 도메인 객체 묶음. 여기선 Document·Folder·Comment 등 문서의 핵심 단위.
+- **보일러플레이트(boilerplate)** — 기능과 직접 상관없이 구조상 어쩔 수 없이 반복해 써야 하는 뼈대 코드(모듈마다 build 파일 등).
+
 ## 참고
 
 - [Alistair Cockburn — Hexagonal Architecture (Ports and Adapters)](https://alistair.cockburn.us/hexagonal-architecture/)

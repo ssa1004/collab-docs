@@ -33,6 +33,16 @@
 ## 결과
 프레임워크와 분리된 OT 엔진을 단위 테스트로 고정하고, 검색/AI/presence/blob를 port 뒤에 두어 dev는 무의존, prod는 실 인프라로 같은 코드가 동작한다. 폴리글랏(Java/Kotlin + Node.js) edge-core 분리로 연결 스케일아웃을 학습한다.
 
+## 용어 풀이 (쉽게)
+
+- **헥사고날 아키텍처(Hexagonal, port/adapter)** — 핵심 로직을 가운데 두고 DB·검색·웹은 콘센트(port)와 플러그(adapter)로만 연결해, 바깥을 바꿔도 핵심 코드는 안 건드리는 구조.
+- **OT(Operational Transformation, 운영 변환)** — 여러 명이 같은 문서를 동시에 고칠 때 편집 위치를 서로 보정해 충돌 없이 합쳐, 누가 먼저 들어오든 모두 같은 결과로 수렴시키는 것.
+- **권위(authoritative) OT** — 편집 충돌을 푸는 '심판'을 중앙 서버 한 곳에만 두고 모든 편집을 서버가 한 줄로 줄 세우는 것. 심판이 하나라 규칙이 단순하고 결과가 항상 같다.
+- **aggregate(애그리거트)** — 함께 묶여 한 덩어리로 다뤄지는 도메인 객체 묶음(주문과 주문항목처럼). 여기선 Document·Folder 등 문서의 핵심 단위.
+- **fan-out(팬아웃)** — 한 사람의 편집·커서 움직임을 같은 문서를 보는 모든 접속자에게 한꺼번에 쫙 뿌리는 것. 선풍기 날개처럼 하나가 여러 갈래로.
+- **RAG(검색증강생성)** — AI가 막연히 지어내지 않게, 먼저 문서에서 관련 대목을 찾아와(retrieve) 그걸 근거로 답을 만드는 방식. 오픈북 시험처럼 책을 펴놓고 답한다.
+- **폴리글랏(polyglot)** — 한 시스템에 언어를 섞어 쓰는 것. 여기선 정합성은 Kotlin, 연결 처리는 Node.js로 역할에 맞는 언어를 골라 쓴다.
+
 ## 참고
 
 - [Alistair Cockburn — Hexagonal Architecture (Ports and Adapters)](https://alistair.cockburn.us/hexagonal-architecture/)
