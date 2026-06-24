@@ -122,14 +122,14 @@ sequenceDiagram
     participant Room as WS 구독자
 
     A->>API: edit { op: insert "[alice] "@0, baseVersion 0 }
-    API->>App: ApplyEditUseCase
+    API->>App: apply(ApplyEditCommand)
     App->>OT: baseVersion 이후 커밋 op 와 transform (없음)
     OT-->>App: 그대로 적용 → version 1
     App->>Log: EditLog append + 재색인
     App->>Room: fan-out (version 1)
 
     B->>API: edit { op: insert "[bob] "@0, baseVersion 0 }
-    API->>App: ApplyEditUseCase
+    API->>App: apply(ApplyEditCommand)
     App->>OT: alice 의 v1 op 에 대해 rebase
     OT-->>App: 위치 0 → 8 로 이동 (8글자 뒤로)
     App->>Log: EditLog append (transform 된 위치 8) + 재색인
