@@ -22,6 +22,15 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-redis") // RedisPresenceAdapter (collab.presence=redis)
     implementation("org.springframework.boot:spring-boot-starter-webflux")    // HttpLlmAdapter WebClient (collab.ai=llm)
 
+    // prod 검색 어댑터: OpenSearchAdapter (collab.search.engine=opensearch).
+    // opensearch-java + Apache HttpClient5 transport. httpclient5 버전은 Spring Boot BOM 이 관리(미명시).
+    implementation("org.opensearch.client:opensearch-java:3.9.0")
+    implementation("org.apache.httpcomponents.client5:httpclient5")
+
+    // prod blob 어댑터: S3BlobAdapter (collab.blob=s3). AWS SDK v2 S3, 버전은 awssdk BOM 으로 정렬.
+    implementation(platform("software.amazon.awssdk:bom:2.46.7"))
+    implementation("software.amazon.awssdk:s3")
+
     // @ConditionalOnProperty 등 부트 오토컨피그 심볼
     implementation("org.springframework.boot:spring-boot-autoconfigure")
 
