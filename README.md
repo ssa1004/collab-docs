@@ -3,7 +3,7 @@
 [![CI](https://github.com/ssa1004/collab-docs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ssa1004/collab-docs/actions/workflows/ci.yml)
 [![Coverage: Kover](https://img.shields.io/badge/coverage-Kover-7F52FF.svg?logo=kotlin)](#테스트-커버리지)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Kotlin 2.0](https://img.shields.io/badge/Kotlin-2.0-7F52FF.svg?logo=kotlin)](https://kotlinlang.org/)
+[![Kotlin 2.0.21](https://img.shields.io/badge/Kotlin-2.0.21-7F52FF.svg?logo=kotlin)](https://kotlinlang.org/)
 [![JDK 21](https://img.shields.io/badge/JDK-21-orange.svg)](https://openjdk.org/projects/jdk/21/)
 [![Spring Boot 3.5.15](https://img.shields.io/badge/Spring%20Boot-3.5.15-6DB33F.svg?logo=springboot)](https://spring.io/projects/spring-boot)
 [![Node.js 20](https://img.shields.io/badge/Node.js-20-339933.svg?logo=nodedotjs)](https://nodejs.org/)
@@ -22,7 +22,7 @@
 > swapping adapters behind ports. A thin Node.js edge gateway handles WS transport,
 > auth and fan-out, but never runs OT — the Kotlin core stays authoritative.
 >
-> **Tech stack**: Kotlin 2.0 (JDK 21), Spring Boot 3.5.15 (Web · WebSocket ·
+> **Tech stack**: Kotlin 2.0.21 (JDK 21), Spring Boot 3.5.15 (Web · WebSocket ·
 > Security · Data JPA), Gradle 8 multi-module, PostgreSQL + Flyway / H2, Redis /
 > OpenSearch (both with in-memory fallbacks), springdoc OpenAPI, Node.js 20 +
 > TypeScript (`ws`) gateway. Hexagonal across 5 Kotlin modules (`domain` →
