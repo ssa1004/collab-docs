@@ -20,7 +20,7 @@ dependencies {
 
     // OpenAPI(/v3/api-docs) — 향후 drift 게이트용.
     // Spring Boot 3.5 / Spring Framework 6.2 호환 버전(2.6.x 는 ControllerAdviceBean 시그니처 불일치로 깨짐).
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

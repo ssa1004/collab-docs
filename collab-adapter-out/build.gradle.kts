@@ -28,7 +28,7 @@ dependencies {
     implementation("org.apache.httpcomponents.client5:httpclient5")
 
     // prod blob 어댑터: S3BlobAdapter (collab.blob=s3). AWS SDK v2 S3, 버전은 awssdk BOM 으로 정렬.
-    implementation(platform("software.amazon.awssdk:bom:2.46.7"))
+    implementation(platform("software.amazon.awssdk:bom:2.46.20"))
     implementation("software.amazon.awssdk:s3")
 
     // @ConditionalOnProperty 등 부트 오토컨피그 심볼
