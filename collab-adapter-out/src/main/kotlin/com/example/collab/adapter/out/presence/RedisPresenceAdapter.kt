@@ -19,6 +19,7 @@ import org.springframework.data.redis.core.StringRedisTemplate
 import org.springframework.data.redis.listener.ChannelTopic
 import org.springframework.data.redis.listener.RedisMessageListenerContainer
 import org.springframework.stereotype.Component
+import jakarta.annotation.PreDestroy
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -76,13 +77,33 @@ class RedisPresenceAdapter(
     }
 
     override fun subscribe(documentId: DocumentId, listener: PresenceListener): Subscription {
-        val list = rooms.computeIfAbsent(documentId) {
-            container.addMessageListener(this, ChannelTopic(channel(documentId)))
-            CopyOnWriteArrayList()
+        // subscribe 와 unsubscribe-정리를 rooms 모니터로 직렬화한다. 이렇게 안 하면 방이 비는 순간과
+        // 재구독이 겹칠 때 채널 리스너가 중복 등록(중복 전송)되거나 고아가 될 수 있다.
+        synchronized(rooms) {
+            val list = rooms.getOrPut(documentId) {
+                container.addMessageListener(this, ChannelTopic(channel(documentId)))
+                CopyOnWriteArrayList()
+            }
+            list.add(listener)
         }
-        list.add(listener)
-        return Subscription { list.remove(listener) }
+        return Subscription {
+            synchronized(rooms) {
+                val list = rooms[documentId]
+                if (list != null) {
+                    list.remove(listener)
+                    if (list.isEmpty()) {
+                        // 방이 비면 채널 구독과 맵 엔트리를 정리 — 장수명 프로세스에서 무한 누적 방지.
+                        rooms.remove(documentId)
+                        container.removeMessageListener(this, ChannelTopic(channel(documentId)))
+                    }
+                }
+            }
+        }
     }
+
+    /** 컨테이너가 시작한 Redis 구독 스레드를 종료 시 정리(형제 prod 어댑터와 동일). */
+    @PreDestroy
+    private fun shutdown() = container.stop()
 
     /** Redis 채널 메시지 수신 → 로컬 구독자 fan-out. */
     override fun onMessage(message: Message, pattern: ByteArray?) {
