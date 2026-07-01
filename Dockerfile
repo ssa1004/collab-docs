@@ -6,7 +6,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ---------- build stage ----------
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 WORKDIR /workspace
 
 # Copy only the wrapper + build scripts first so dependency resolution is cached
@@ -32,7 +32,7 @@ RUN ./gradlew :collab-bootstrap:bootJar --no-daemon -x test \
     && cp collab-bootstrap/build/libs/collab-docs.jar /workspace/app.jar
 
 # ---------- runtime stage ----------
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 # Patch OS packages and add a curl for the HEALTHCHECK, then create a non-root user.
 # hadolint ignore=DL3018
